@@ -1,30 +1,36 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:flutter_dashboard/main.dart';
+import 'package:flutter_dashboard/screens/dashboard_screen.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('App builds and shows DashboardScreen', (
+    WidgetTester tester,
+  ) async {
+    // Build the app
+    await tester.pumpWidget(MyApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Check for AppBar title
+    expect(find.text('Dashboard'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // DashboardScreen should be present
+    expect(find.byType(DashboardScreen), findsOneWidget);
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets('Shows loading indicator initially', (WidgetTester tester) async {
+    await tester.pumpWidget(MyApp());
+
+    // CircularProgressIndicator should appear while loading
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
+  testWidgets('Displays items after load', (WidgetTester tester) async {
+    await tester.pumpWidget(MyApp());
+
+    // Let async operations complete
+    await tester.pumpAndSettle();
+
+    // There should be at least one item card
+    expect(find.byType(Card), findsWidgets);
   });
 }
