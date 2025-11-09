@@ -35,11 +35,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> loadItems() async {
     setState(() => loading = true);
     try {
-      final fetchedItems = await apiHelper.fetchItems();
-      for (var item in fetchedItems) {
-        await dbHelper.insertItem(item);
-      }
+      // Load from DB first
       final dbItems = await dbHelper.getItems();
+
+      // Load from API
+      final apiItems = await apiHelper.fetchItems();
+
+      // Save API items to DB (if needed)
+      for (var item in apiItems) {
+        // Optional: check if item exists in DB before inserting
+        if (!dbItems.any((dbItem) => dbItem.id == item.id)) {
+          await dbHelper.insertItem(item);
+          dbItems.add(item); // Add new API item to the combined list
+        }
+      }
+
       setState(() {
         items = dbItems;
         loading = false;
