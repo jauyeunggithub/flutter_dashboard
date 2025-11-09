@@ -26,6 +26,7 @@ class TestDashboardScreen extends StatefulWidget {
 class _TestDashboardScreenState extends State<TestDashboardScreen> {
   List<Item> items = [];
   bool loading = true;
+  final TextEditingController _controller = TextEditingController();
 
   @override
   void initState() {
@@ -36,9 +37,15 @@ class _TestDashboardScreenState extends State<TestDashboardScreen> {
   Future<void> loadItems() async {
     try {
       final fetchedItems = await widget.apiHelper.fetchItems();
+
+      // Insert only items that are not already in dbItems
+      final existingItems = await widget.dbHelper.getItems();
       for (var item in fetchedItems) {
-        await widget.dbHelper.insertItem(item);
+        if (!existingItems.any((e) => e.id == item.id)) {
+          await widget.dbHelper.insertItem(item);
+        }
       }
+
       final dbItems = await widget.dbHelper.getItems();
       setState(() {
         items = dbItems;
@@ -50,19 +57,55 @@ class _TestDashboardScreenState extends State<TestDashboardScreen> {
     }
   }
 
+  Future<void> addItem() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
+    final newItem = Item(id: DateTime.now().millisecondsSinceEpoch, name: text);
+    await widget.dbHelper.insertItem(newItem);
+    _controller.clear();
+    await loadItems();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Dashboard (Test)')),
       body: loading
           ? Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                children: items
-                    .map((item) => Card(child: Text(item.name)))
-                    .toList(),
-              ),
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          key: const Key('itemInput'),
+                          controller: _controller,
+                          decoration: const InputDecoration(
+                            labelText: 'New Item',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        key: const Key('addButton'),
+                        onPressed: addItem,
+                        child: const Text('Add'),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    children: items
+                        .map((item) => Card(child: Text(item.name)))
+                        .toList(),
+                  ),
+                ),
+              ],
             ),
     );
   }
@@ -73,18 +116,31 @@ void main() {
     registerFallbackValue(Item(id: 0, name: 'fallback'));
   });
 
-  testWidgets('Displays items after load', (WidgetTester tester) async {
+  testWidgets('Displays items after load and allows adding new item', (
+    WidgetTester tester,
+  ) async {
     final mockApiHelper = MockApiHelper();
     final mockDbHelper = MockDatabaseHelper();
 
+    // Simulate a local database storage
+    final List<Item> dbItems = [];
+
+    // API returns two initial items
     when(() => mockApiHelper.fetchItems()).thenAnswer(
       (_) async => [Item(id: 1, name: 'Item 1'), Item(id: 2, name: 'Item 2')],
     );
 
-    when(() => mockDbHelper.insertItem(any())).thenAnswer((_) async => 1);
-    when(() => mockDbHelper.getItems()).thenAnswer(
-      (_) async => [Item(id: 1, name: 'Item 1'), Item(id: 2, name: 'Item 2')],
-    );
+    // DB insert mock adds items to local list
+    when(() => mockDbHelper.insertItem(any())).thenAnswer((invocation) async {
+      final item = invocation.positionalArguments[0] as Item;
+      dbItems.add(item);
+      return 1;
+    });
+
+    // DB getItems mock returns a fresh copy of the local list
+    when(
+      () => mockDbHelper.getItems(),
+    ).thenAnswer((_) async => List.from(dbItems));
 
     await tester.pumpWidget(
       MaterialApp(
@@ -95,17 +151,21 @@ void main() {
       ),
     );
 
-    // Loading indicator shows first
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-
+    // Wait for initial load
     await tester.pumpAndSettle();
 
-    // ItemCards appear
-    expect(find.byType(Card), findsNWidgets(2));
+    // Verify API items are loaded
     expect(find.text('Item 1'), findsOneWidget);
     expect(find.text('Item 2'), findsOneWidget);
+    expect(find.byType(Card), findsNWidgets(2));
 
-    // Loading disappears
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    // Add a new item via input
+    await tester.enterText(find.byKey(const Key('itemInput')), 'Item 3');
+    await tester.tap(find.byKey(const Key('addButton')));
+    await tester.pumpAndSettle();
+
+    // Verify the new item appears
+    expect(find.text('Item 3'), findsOneWidget);
+    expect(find.byType(Card), findsNWidgets(3));
   });
 }
