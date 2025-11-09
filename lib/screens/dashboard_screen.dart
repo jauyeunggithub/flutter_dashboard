@@ -6,15 +6,18 @@ import '../models/item.dart';
 import '../widgets/item_card.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final ApiHelper? apiHelper;
+  final DatabaseHelper? dbHelper;
+
+  const DashboardScreen({super.key, this.apiHelper, this.dbHelper});
 
   @override
   _DashboardScreenState createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final dbHelper = DatabaseHelper();
-  final apiHelper = ApiHelper();
+  late final DatabaseHelper dbHelper;
+  late final ApiHelper apiHelper;
 
   List<Item> items = [];
   bool loading = true;
@@ -22,20 +25,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    // Use injected helpers if provided, otherwise create new
+    dbHelper = widget.dbHelper ?? DatabaseHelper();
+    apiHelper = widget.apiHelper ?? ApiHelper();
     loadItems();
   }
 
   Future<void> loadItems() async {
     try {
-      // Fetch from API
       final fetchedItems = await apiHelper.fetchItems();
 
-      // Save to DB
       for (var item in fetchedItems) {
         await dbHelper.insertItem(item);
       }
 
-      // Load from DB
       final dbItems = await dbHelper.getItems();
 
       setState(() {
