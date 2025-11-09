@@ -3,7 +3,7 @@ import '../models/item.dart';
 
 class ItemCard extends StatelessWidget {
   final Item item;
-  const ItemCard({Key? key, required this.item}) : super(key: key);
+  const ItemCard({super.key, required this.item});
 
   @override
   Widget build(BuildContext context) {

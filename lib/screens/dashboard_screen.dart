@@ -6,6 +6,8 @@ import '../models/item.dart';
 import '../widgets/item_card.dart';
 
 class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({super.key});
+
   @override
   _DashboardScreenState createState() => _DashboardScreenState();
 }
